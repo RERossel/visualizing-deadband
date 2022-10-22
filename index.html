@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML5 canvas visualization of deadband and dead time</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+    <div>
+        <canvas id="visualization" width="1000" height="600" style="max-width: 100%; height: auto;"></canvas>
+    </div>
+
+    <div class="slider_container">
+        <span class="slider_label">
+            <b>Deadband: </b>
+        </span>
+        <input id="deadband_value_in" type="range" min="0" max="300" value="150" class="slider" style="width:300px">
+        <span class="slider_output_class">
+            value: <span id="deadband_value_out" class="slider_value">0</span>
+        </span>
+    </div>
+    <div class="slider_explanation">
+        A new measurement point is only taken into account if it falls <i>outside</i> the deadband.
+    </div>
+    </br>
+
+    <script  src="./script.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+div {
+    text-align: center;
+}
+.slider_container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+.slider_label {
+    text-align: left;
+    width: 90px;
+}
+.slider_output {
+    padding-left: 10px;
+    text-align: left;
+    width: 80px;
+}
+.slider_value {
+    text-align: right;
+    display: inline-block;
+    width: 20px;
+}
