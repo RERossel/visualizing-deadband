@@ -3,19 +3,13 @@ let deadband_value_in  = document.getElementById("deadband_value_in");
 let deadband_value_out = document.getElementById("deadband_value_out");
 let context = canvas.getContext('2d');
 
-let risingEdges = [];
+let acquisitionRateInMS = 500;
+let scrollSpeedInPX = 2;
 let plotPoints = [];
 let nowMilliseconds = 0;
 let prvMilliseconds = 0;
 let loopTime = 0;
 let loopTimeSum = 0;
-let riseTime = 25;
-let range_max_px = 200; // Range in pixels
-let accuracy;
-let accuracy_reference;
-let precision;
-let precision_reference;// = range_max_px / Number(slider_precision.max) * Number(slider_precision.value);
-let jitter;
 let resolution;
 let lastX = 0;
 let lastY = 0;
@@ -72,7 +66,7 @@ function DrawPoint(x, y, ok) {
         this.draw();
         this.alphaOpacity = this.alphaOpacity * 0.99;
         if (this.alphaOpacity < 0.001) { this.alphaOpacity = 0 };
-        this.xCoordinate = this.xCoordinate - 2;
+        this.xCoordinate = this.xCoordinate - scrollSpeedInPX;
     }
 
     // Getters for properties of this object.
@@ -268,14 +262,14 @@ function animate() {
     requestAnimationFrame(animate);
 
     // Hard coded canvas size values for now...
-    context.clearRect(0, 0, 1000, 600);
+    context.clearRect(0, 0, canvas.width, canvas.height);
 
 
     drawCoordinateSystem();
 
 
     // Add a new plot point every 1000 ms.
-    if (loopTimeSum > 1000) {
+    if (loopTimeSum > acquisitionRateInMS) {
         //risingEdges.unshift(new DrawRisingEdge(canvas_waveform.width / 2 + accuracy * resolution));
         newX = canvas.width / 2 + 250;
         //console.log(newX);
