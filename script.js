@@ -3,13 +3,13 @@ let deadband_value_in  = document.getElementById("deadband_value_in");
 let deadband_value_out = document.getElementById("deadband_value_out");
 let context = canvas.getContext('2d');
 
-let acquisitionRateInMS = 500;
+let acquisitionRateMS = 500;
 let scrollSpeedInPX = 2;
 let plotPoints = [];
-let nowMilliseconds = 0;
-let prvMilliseconds = 0;
-let loopTime = 0;
-let loopTimeSum = 0;
+let currentTimeMS  = 0;
+let previousTimeMS = 0;
+let deltaTimeMS    = 0;
+let timeBetweenAcquisitionsMS = 0;
 let resolution;
 let lastX = 0;
 let lastY = 0;
@@ -21,15 +21,14 @@ let deadband_width = 100;
 
 
 
-// Treat a function as a JavaScript object
-// as we want to have multiple instances
-// representing multiple points.
+// Treat a function as a JavaScript object.
+// We want to have multiple instances representing multiple points.
 function DrawPoint(x, y, ok) {
 
     // Initialize properties of the point.
     this.xCoordinate = x;
     this.yCoordinate = y;
-    this.ok = ok;
+    this.outsideDeadBand = ok;
     this.radius = 5;
     this.startAngle = 0;
     this.endAngle = 2 * Math.PI;
@@ -38,16 +37,19 @@ function DrawPoint(x, y, ok) {
     // Draw line path representing one point on the canvas.
     this.draw = function () {
 
-        if (ok) {
+        if (this.outsideDeadBand) {
+
             // Point falls outside the deadband and is drawn as a green circle.
             context.beginPath();
             context.arc(this.xCoordinate, this.yCoordinate, this.radius, this.startAngle, this.endAngle);
-            
-            context.strokeStyle = 'rgba(  0,   0,   0, ' + this.alphaOpacity + ' )';
-            context.stroke();
             context.fillStyle   = 'rgba(  0, 255,   0, ' + this.alphaOpacity + ' )';
             context.fill();
+            context.strokeStyle = 'rgba(  0,   0,   0, ' + this.alphaOpacity + ' )';
+            context.lineWidth = 2;
+            context.stroke();
+
         } else {
+
             // Point falls inside the deadband and is drawn as a red X.
             context.beginPath();
             context.moveTo(this.xCoordinate-5, this.yCoordinate+5);
@@ -55,13 +57,15 @@ function DrawPoint(x, y, ok) {
             context.moveTo(this.xCoordinate-5, this.yCoordinate-5);
             context.lineTo(this.xCoordinate+5, this.yCoordinate+5);
             context.strokeStyle = 'rgba( 255,   0,   0, ' + this.alphaOpacity + ' )';
+            context.lineWidth = 2;
             context.stroke();
+
         }
 
     }
 
     // First draw content and then decrease opacity to create fade-out effect.
-    // TODO: Make the fade-out time dependent.
+    // 🚧TODO🚧 Make this deltaTime dependent instead of frame-to-frame dependent.
     this.update = function () {
         this.draw();
         this.alphaOpacity = this.alphaOpacity * 0.99;
@@ -80,7 +84,7 @@ function DrawPoint(x, y, ok) {
         return this.yCoordinate;
     }
     this.getOK = function () {
-        return this.ok;
+        return this.outsideDeadBand;
     }
 
 }
@@ -90,6 +94,8 @@ function DrawPoint(x, y, ok) {
 function DrawDeadBand(y) {
 
     this.draw = function () {
+
+        context.lineWidth = 1;
 
         // Draw top border.
         context.beginPath();
@@ -121,29 +127,27 @@ function DrawDeadBand(y) {
 
 function DrawInterpolation(listOfPoints) {
 
-    //console.log("interpolating");
+    context.lineWidth = 3;
 
+    // Do not draw a line to the first point in the plot.
     let firstPoint = true;
 
     this.draw = function () {
-        //console.log("drawing");
         context.beginPath();
         // Go through array of points.
         for (var i = 0; i <= listOfPoints.length - 1; i++) {
-            //console.log(i);
             // If the current plot point is valid, draw a point to it.
             if (Boolean(plotPoints[i].getOK())) {
-                //console.log(Boolean(plotPoints[i].getOK));
                 if (firstPoint) {
+                    // Move to the first point in the plot without drawing a line to it.
                     context.moveTo(Number(plotPoints[i].getX()), Number(plotPoints[i].getY()));
                     firstPoint = false;
-                }
-                else {
+                } else {
+                    // Draw a line to each remaining plot point.
                     context.lineTo(Number(plotPoints[i].getX()), Number(plotPoints[i].getY()));
                 }
             }
         }
-        context.lineWidth = 3;
         context.strokeStyle = 'rgba(   0,   255,   0, 0.33 )';
         context.stroke();
     }
@@ -154,19 +158,22 @@ function DrawInterpolation(listOfPoints) {
 
 
 
-// Draw a transparent red rectangle over the scene
-// that flashes shortly and then fades out.
+// Draw a transparent red rectangle over the scene.
+// The rectangle should flash at half transparency and then fade out.
 function DrawFailRect() {
 
     this.alphaOpacity = 0.5;
 
+    // Overlay the whole scene with a transparent red rectangle to indicate point fell in deadband.
     this.draw = function () {
         context.fillStyle   = 'rgba(255,   0,   0, ' + this.alphaOpacity + ')';
         context.fillRect(0, 0, canvas.width, canvas.height);
     }
 
+    // Use the update method to create a fade-out effect for each draw call.
     this.update = function () {
         this.draw();
+        // 🚧TODO🚧 Make this deltaTime dependent instead of frame-to-frame dependent.
         this.alphaOpacity = this.alphaOpacity * 0.90;
         if (this.alphaOpacity < 0.001) { this.alphaOpacity = 0 };
     }
@@ -177,7 +184,8 @@ function DrawFailRect() {
 
 function drawCoordinateSystem() {
 
-    context.lineWidth = 1;
+    context.lineWidth = 4;
+    //context.lineJoin = "round";
 
     // Draw x-axis.
     context.beginPath();
@@ -186,6 +194,7 @@ function drawCoordinateSystem() {
     context.strokeStyle = 'rgba(   0,   0,   0, 1.0 )';
     context.stroke();
 
+    // Draw x-axis arrowhead.
     context.beginPath();
     context.moveTo(880, 495);
     context.lineTo(900, 500);
@@ -207,6 +216,7 @@ function drawCoordinateSystem() {
     context.strokeStyle = 'rgba(   0,   0,   0, 1.0 )';
     context.stroke();
 
+    // Draw y-axis arrowhead.
     context.beginPath();
     context.moveTo( 95, 120);
     context.lineTo(100, 100);
@@ -243,56 +253,78 @@ function read_deadband_value_in() {
 // Main animation loop.
 function animate() {
 
-    // Logging the time between frames.
-    prvMilliseconds = nowMilliseconds;
-    nowMilliseconds = new Date().getMilliseconds();
 
+    // First, start with the 'engine' calculations.
+
+    // Calculate time difference between frames as deltaTime.
+    previousTimeMS = currentTimeMS;
+    currentTimeMS = new Date().getMilliseconds();
+    
     // Deal with overflow of the millisecond timer.
-    if (nowMilliseconds < prvMilliseconds) {
-        loopTime = 1000 + nowMilliseconds - prvMilliseconds;
+    if (currentTimeMS < previousTimeMS) {
+        deltaTimeMS = 1000 + currentTimeMS - previousTimeMS;
     }
     else {
-        loopTime = nowMilliseconds - prvMilliseconds;
+        deltaTimeMS = currentTimeMS - previousTimeMS;
     }
-
-    loopTimeSum = loopTimeSum + loopTime;
-
-
-    // Start animation via recursive call.
-    requestAnimationFrame(animate);
-
-    // Hard coded canvas size values for now...
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-
-    drawCoordinateSystem();
-
-
+    
+    // At 60 FPS, this value should be around 16 ms.
+    //console.log("Loop time = " + deltaTimeMS);
+    
+    
+    // Calculate time between acquisitions in deltaTime chunks.
+    timeBetweenAcquisitionsMS = timeBetweenAcquisitionsMS + deltaTimeMS;
+    
     // Add a new plot point every 1000 ms.
-    if (loopTimeSum > acquisitionRateInMS) {
-        //risingEdges.unshift(new DrawRisingEdge(canvas_waveform.width / 2 + accuracy * resolution));
-        newX = canvas.width / 2 + 250;
+    if (timeBetweenAcquisitionsMS > acquisitionRateMS) {
+        
+        // The new x value should appear on the right quarter of the canvas width. 
+        newX = 3 * ( canvas.width / 4);
         //console.log(newX);
-        newY = canvas.height / 2 + (Math.random() - 0.5) * 250;
+        
+        // The new y value should appear somewhere between the second and third quarter of the canvas height.
+        newY = ( canvas.height / 2 ) + ( Math.random() - 0.5 ) * ( canvas.width / 4 );
         //console.log(newY);
         //console.log(lastY);
+        
+        // Check if the new point fell into the deadband or not.
+        // Add point to the plot, indicating if it's outside (true) or inside (false) deadband.
         if ((newY > lastY + deadband_width/2) || (newY < lastY - deadband_width/2)) {
             plotPoints.unshift(new DrawPoint(newX, newY, true));
             deadband = new DrawDeadBand(newY, deadband_width);
             //Point outside deadband. Update last values.
             lastX = newX;
             lastY = newY;
-        }
-        else {
+        } else {
             // Indicate that a point fell into the deadband.
             plotPoints.unshift(new DrawPoint(newX, newY, false));
             failRect = new DrawFailRect();
         }
-        loopTimeSum = 0;
+        // Reset acquisition timer after a new point has been drawn.
+        timeBetweenAcquisitionsMS = 0;
         //console.log("New Point.")
     }
 
-    // Go through the array of plot points and call their update method.
+
+    // Calculations are done.
+    // Start drawing the scene.
+    
+    // Clear the canvas before drawing the next frame.
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    
+
+    // Draw the deadband visualization first, as it should be in the background layer.
+    if (deadband) {
+        deadband.update();
+    }
+    
+
+    // Draw the coordinate system as the second layer.
+    drawCoordinateSystem();
+    
+
+    // Draw the plot pints as the third layer.
+    // Go through the array of plot points and draw them calling their update method.
     for (var i = 0; i <= plotPoints.length - 1; i++) {
         plotPoints[i].update();
         // If a plot point has faded away, delete it from the array.
@@ -300,16 +332,20 @@ function animate() {
             plotPoints.pop();
         }
     }
+    
+    // Draw an interpolation line between the good (non-deadband) plot points.
+    DrawInterpolation(plotPoints);
+    
 
-    if (deadband) {
-        deadband.update();
-    }
-
+    // Draw the visualization of a point falling into the deadband as an overlay top layer.
     if (failRect) {
         failRect.update();
     }
+    
 
-    DrawInterpolation(plotPoints);
+    // Start next animation frame via recursive call to self.
+    requestAnimationFrame(animate);
+    
 
 }
 
